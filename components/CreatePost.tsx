@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { USERS, CURRENT_USER_ID } from '../constants';
+import { useAuth } from './AuthProvider';
 
 interface CreatePostProps {
   onAddPost: (content: string) => void;
@@ -8,7 +8,9 @@ interface CreatePostProps {
 
 const CreatePost: React.FC<CreatePostProps> = ({ onAddPost }) => {
   const [content, setContent] = useState('');
-  const currentUser = USERS.find(u => u.id === CURRENT_USER_ID)!;
+  const { user } = useAuth();
+  const displayName = user?.user_metadata?.name || user?.email || 'Usuário';
+  const avatarUrl = user?.user_metadata?.avatar_url || `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(displayName)}`;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -21,7 +23,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onAddPost }) => {
   return (
     <div className="p-4 border-b border-gray-dark">
       <div className="flex space-x-4">
-        <img src={currentUser.avatarUrl} alt={currentUser.name} className="w-12 h-12 rounded-full" />
+        <img src={avatarUrl} alt={displayName} className="w-12 h-12 rounded-full" />
         <form onSubmit={handleSubmit} className="w-full">
           <textarea
             value={content}

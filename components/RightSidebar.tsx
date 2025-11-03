@@ -6,10 +6,10 @@ import { MoreIcon, SearchIcon } from './Icons';
 const RightSidebar: React.FC = () => {
   const suggestedUsers = USERS.slice(1, 4); // Exclude current user
   const trends = [
-    { topic: '#ReactJS', posts: '125K posts' },
-    { topic: '#DesenvolvimentoWeb', posts: '89.7K posts' },
-    { topic: '#UIUX', posts: '56.1K posts' },
-    { topic: '#TailwindCSS', posts: '42.3K posts' },
+    { topic: '#AutoconhecimentoAtivo', posts: '12.3K publicações' },
+    { topic: '#Mindfulness', posts: '8.9K publicações' },
+    { topic: '#Journaling', posts: '5.4K publicações' },
+    { topic: '#InteligênciaEmocional', posts: '9.8K publicações' },
   ];
 
   return (
@@ -31,7 +31,7 @@ const RightSidebar: React.FC = () => {
           {trends.map((trend, index) => (
             <div key={index} className="flex justify-between items-center hover:bg-gray-dark p-2 rounded-lg cursor-pointer">
               <div>
-                <p className="text-gray-light text-sm">Trending</p>
+                <p className="text-gray-light text-sm">Em alta</p>
                 <p className="font-bold">{trend.topic}</p>
                 <p className="text-gray-light text-sm">{trend.posts}</p>
               </div>

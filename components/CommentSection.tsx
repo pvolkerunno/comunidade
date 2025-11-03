@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import type { Comment } from '../types';
-import { USERS, CURRENT_USER_ID } from '../constants';
+import { useAuth } from './AuthProvider';
 
 interface CommentSectionProps {
   postId: string;
@@ -11,7 +11,9 @@ interface CommentSectionProps {
 
 const CommentSection: React.FC<CommentSectionProps> = ({ postId, comments, onAddComment }) => {
   const [newComment, setNewComment] = useState('');
-  const currentUser = USERS.find(u => u.id === CURRENT_USER_ID)!;
+  const { user } = useAuth();
+  const displayName = user?.user_metadata?.name || user?.email || 'Usuário';
+  const avatarUrl = user?.user_metadata?.avatar_url || `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(displayName)}`;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,7 +38,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({ postId, comments, onAdd
         </div>
       ))}
       <form onSubmit={handleSubmit} className="flex space-x-3 mt-4">
-        <img src={currentUser.avatarUrl} alt={currentUser.name} className="w-8 h-8 rounded-full" />
+        <img src={avatarUrl} alt={displayName} className="w-8 h-8 rounded-full" />
         <input
           type="text"
           value={newComment}

@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import type { Post, Comment, View, User } from './types';
 import { POSTS, USERS, CURRENT_USER_ID } from './constants';
 import Sidebar from './components/Sidebar';
@@ -9,12 +9,40 @@ import ExplorePage from './components/ExplorePage';
 import NotificationsPage from './components/NotificationsPage';
 import ProfilePage from './components/ProfilePage';
 import MyNetworkPage from './components/MyNetworkPage';
+import { AuthProvider, useAuth } from './components/AuthProvider';
+import AuthForm from './components/AuthForm';
+import { supabase } from './supabaseClient';
 
 const App: React.FC = () => {
+  return (
+    <AuthProvider>
+      <AuthGate>
+        <AppContent />
+      </AuthGate>
+    </AuthProvider>
+  );
+};
+
+const AppContent: React.FC = () => {
   const [posts, setPosts] = useState<Post[]>(POSTS);
   const [users, setUsers] = useState<User[]>(USERS);
   const [activeView, setActiveView] = useState<View>('home');
   const currentUser = users.find(u => u.id === CURRENT_USER_ID)!;
+  const { user: authUser } = useAuth();
+
+  const mapAuthUserToUI = (): User => {
+    const name = (authUser?.user_metadata as any)?.name || authUser?.email || currentUser.name;
+    const username = authUser?.email ? authUser.email.split('@')[0] : currentUser.username;
+    const avatarUrl = (authUser?.user_metadata as any)?.avatar_url || `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(name)}`;
+    return {
+      id: authUser?.id || currentUser.id,
+      name,
+      username,
+      avatarUrl,
+      bio: currentUser.bio,
+      bannerUrl: currentUser.bannerUrl,
+    };
+  };
 
   const handleNavClick = useCallback((view: View) => {
     setActiveView(view);
@@ -42,18 +70,28 @@ const App: React.FC = () => {
     );
   }, []);
 
-  const handleAddPost = useCallback((content: string) => {
+  const handleAddPost = useCallback(async (content: string) => {
+    const uiUser = mapAuthUserToUI();
     const newPost: Post = {
       id: `p${Date.now()}`,
-      user: currentUser,
+      user: uiUser,
       content,
       timestamp: 'agora',
       likes: 0,
       shares: 0,
       comments: [],
     };
-    setPosts(prevPosts => [newPost, ...prevPosts]);
-  }, [currentUser]);
+    setPosts(prev => [newPost, ...prev]);
+    try {
+      await supabase.from('posts').insert({
+        content,
+        user_id: authUser?.id,
+        image_url: null,
+      });
+    } catch (e) {
+      console.warn('Supabase: falha ao inserir post, mantendo local. Detalhes:', e);
+    }
+  }, [authUser]);
 
   const handleAddComment = useCallback((postId: string, text: string) => {
     const newComment: Comment = {
@@ -79,6 +117,38 @@ const App: React.FC = () => {
         )
     );
   }, []);
+
+  // Autenticação é gerenciada pelo AuthProvider
+
+  useEffect(() => {
+    const loadPosts = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('posts')
+          .select('id, content, created_at, user_id, image_url')
+          .order('created_at', { ascending: false })
+          .limit(50);
+        if (error) throw error;
+        const mapped: Post[] = (data || []).map((row: any) => ({
+          id: row.id?.toString() ?? `p-${row.created_at}`,
+          user: mapAuthUserToUI(),
+          content: row.content,
+          imageUrl: row.image_url ?? undefined,
+          timestamp: new Date(row.created_at).toLocaleString(),
+          likes: 0,
+          comments: [],
+          shares: 0,
+        }));
+        if (mapped.length) setPosts(mapped);
+      } catch (e) {
+        console.warn('Supabase: não foi possível carregar posts, usando mocks. Detalhes:', e);
+      }
+    };
+    loadPosts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Painel de verificação removido; mantendo apenas lógica de posts
 
   const renderMainContent = () => {
     switch (activeView) {
@@ -106,6 +176,7 @@ const App: React.FC = () => {
           </aside>
 
           <main className="col-span-1 md:col-span-8 lg:col-span-6 min-h-screen border-x border-gray-dark pb-16 md:pb-0">
+            {/* Painel de Supabase removido conforme solicitado */}
             {renderMainContent()}
           </main>
           
@@ -115,8 +186,37 @@ const App: React.FC = () => {
         </div>
       </div>
       <BottomNav activeView={activeView} onNavClick={handleNavClick} />
+      <LogoutButton />
     </div>
   );
 };
 
 export default App;
+
+const AuthGate: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { session, loading } = useAuth();
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-primary text-light">
+        <div className="animate-pulse">Carregando...</div>
+      </div>
+    );
+  }
+  if (!session) {
+    return <AuthForm />;
+  }
+  return <>{children}</>;
+};
+
+const LogoutButton: React.FC = () => {
+  const { signOut } = useAuth();
+  return (
+    <button
+      onClick={signOut}
+      title="Sair"
+      className="fixed bottom-20 right-4 z-50 bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg shadow"
+    >
+      Sair
+    </button>
+  );
+};
